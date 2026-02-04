@@ -4,3 +4,5 @@ plotly
 requests
 openai
 pydantic
+googlesearch-python
+beautifulsoup4
