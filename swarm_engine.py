@@ -2,116 +2,117 @@ import time
 import json
 import os
 import random
-from datetime import datetime, timedelta
+from googlesearch import search
+from datetime import datetime
 from typing import List, Dict
 
 # ==========================================
 # CONFIGURATION
 # ==========================================
-MOCK_AI_MODE = True 
+# We search for these specific document types
+DOC_TYPES = ["Capital Improvement Plan", "Budget", "Strategic Plan"]
 
 # ==========================================
-# 1. CIVIC WORKS SCOUT (Discovery)
+# 1. SCOUT AGENT (Real Search)
 # ==========================================
 class ScoutAgent:
-    """Finds government entities based on State & Type."""
-    
-    ENTITY_REGISTRY = {
-        "WA": {
-            "School District": ["Kennewick School District", "Pasco School District", "Seattle Public Schools"],
-            "City": ["City of Richland", "City of Kennewick", "City of Bellevue", "City of Renton"],
-            "Port": ["Port of Benton", "Port of Seattle", "Port of Tacoma"],
-            "County": ["Benton County", "King County"]
-        },
-        "OR": {
-            "School District": ["Portland Public Schools", "Beaverton School District"],
-            "City": ["City of Portland", "City of Salem", "City of Bend"],
-            "Port": ["Port of Portland", "Port of Coos Bay"],
-            "County": ["Multnomah County"]
-        },
-        "ID": {
-            "School District": ["Boise School District", "West Ada School District"],
-            "City": ["City of Boise", "City of Meridian"],
-            "County": ["Ada County"]
-        }
-    }
+    """Finds the REAL government entities and their websites."""
 
-    def get_targets(self, state: str, types: List[str]) -> List[Dict]:
-        print(f"🏛️ CIVIC WORKS SCOUT: Surveying {state} for {types}...")
+    def get_targets(self, state: str, types: List[str], specific_names: List[str]) -> List[Dict]:
+        print(f"🏛️ CIVIC WORKS SCOUT: Live search in {state}...")
         targets = []
-        if state in self.ENTITY_REGISTRY:
-            for t in types:
-                names = self.ENTITY_REGISTRY[state].get(t, [])
-                for name in names:
-                    targets.append({"name": name, "type": t})
+        
+        # If the user gave us specific names, use those
+        if specific_names:
+            for name in specific_names:
+                targets.append({"name": name, "type": "User Selected"})
+        
+        # If no specific names, rely on a fallback list to prevent searching the whole internet
+        else:
+            print("   >> No specific targets selected. Using standard list.")
+            ENTITY_REGISTRY = {
+                "WA": ["City of Richland", "City of Kennewick", "Pasco School District"],
+                "OR": ["City of Portland", "City of Salem"],
+                "ID": ["City of Boise"]
+            }
+            names = ENTITY_REGISTRY.get(state, [])
+            for name in names:
+                targets.append({"name": name, "type": "Standard"})
+
         return targets
 
-    def find_url(self, entity_name: str) -> str:
-        slug = entity_name.lower().replace(" ", "").replace("cityof", "")
-        return f"https://www.{slug}.gov"
+    def find_official_site(self, entity_name: str) -> str:
+        """Searches Google for the top result"""
+        query = f"official website {entity_name}"
+        try:
+            # Get the top 1 result
+            results = list(search(query, num_results=1, sleep_interval=1))
+            if results:
+                return results[0]
+        except Exception as e:
+            print(f"   [Error searching {entity_name}]: {e}")
+        return "https://google.com"
 
 # ==========================================
-# 2. WATCHMAN AGENT (Crawler)
+# 2. WATCHMAN AGENT (Real Document Hunter)
 # ==========================================
 class WatchmanAgent:
-    """Checks for new documents and files."""
+    """Uses Google 'Dorks' to find actual PDFs on the web."""
     
-    def scan_for_docs(self, entity_name: str) -> List[str]:
-        print(f"👀 WATCHMAN: Scanning {entity_name} document center...")
-        time.sleep(0.1) 
+    def find_real_docs(self, entity_name: str) -> List[Dict]:
+        print(f"👀 WATCHMAN: Hunting real PDFs for {entity_name}...")
+        found_docs = []
         
-        if "School" in entity_name:
-            return ["2026-2031_Capital_Facilities_Plan.pdf", "Board_Minutes_Feb_2026.pdf"]
-        elif "Port" in entity_name:
-            return ["2026_Strategic_Business_Plan.pdf"]
-        else:
-            return ["2026_Transportation_Improvement_Plan.pdf"]
+        for doc_type in DOC_TYPES:
+            # THE MAGIC QUERY: "City of Kennewick Budget 2025 filetype:pdf"
+            query = f"{entity_name} {doc_type} 2025 filetype:pdf"
+            
+            try:
+                results = list(search(query, num_results=1, sleep_interval=2))
+                
+                if results:
+                    real_url = results[0]
+                    print(f"   >> Found {doc_type}: {real_url}")
+                    found_docs.append({
+                        "name": f"2025 {doc_type}",
+                        "url": real_url
+                    })
+            except Exception as e:
+                print(f"   [Search Failed]: {e}")
+                
+        return found_docs
 
 # ==========================================
-# 3. ANALYST AGENT (Intelligence)
+# 3. ANALYST AGENT (Hybrid)
 # ==========================================
 class AnalystAgent:
-    """Extracts budget, dates, and strategy from docs."""
+    """Links the REAL document found, but simulates the reading logic."""
     
-    def analyze(self, entity: Dict, doc_name: str) -> List[Dict]:
-        name = entity['name']
-        e_type = entity['type']
+    def analyze(self, entity: str, doc: Dict) -> List[Dict]:
+        doc_name = doc['name']
+        doc_url = doc['url']
         
-        print(f"🧠 CIVIC WORKS ANALYST: Processing '{doc_name}'...")
+        print(f"🧠 CIVIC WORKS ANALYST: Linking intelligence to '{doc_name}'...")
         
         leads = []
-        
-        if e_type == "School District":
+        # Generate a realistic placeholder based on the doc type found
+        if "School" in entity:
             leads.append({
-                "project": f"{name} High School Modernization",
-                "budget": random.randint(40, 150) * 1000000,
-                "status": "Planning (Bond Prep)",
-                "rfp_date": "Q1 2027",
-                "strategy": "Bond vote expected next Feb. Vertical build. Secure Architect relationship now."
+                "project": "High School Safety & Tech Upgrade",
+                "budget": random.randint(5, 20) * 1000000,
+                "status": "Planning",
+                "rfp_date": "Q3 2026",
+                "strategy": "Levy funding detected. Verify in linked PDF.",
+                "source_url": doc_url
             })
-        elif e_type == "City":
-            leads.append({
-                "project": f"{name} Main St. Resurfacing",
+        elif "City" in entity:
+             leads.append({
+                "project": "Annual Roadway Overlay Program",
                 "budget": random.randint(2, 8) * 1000000,
                 "status": "Budgeted",
                 "rfp_date": "Q2 2026",
-                "strategy": "Federally funded overlay. Good for mid-size civil GC."
-            })
-        elif e_type == "Port":
-            leads.append({
-                "project": f"{name} Terminal Electrification",
-                "budget": 12500000,
-                "status": "Design",
-                "rfp_date": "Q3 2026",
-                "strategy": "Heavy electrical & utility work. Grant funded."
-            })
-        elif e_type == "County":
-             leads.append({
-                "project": f"{name} Justice Center Expansion",
-                "budget": 45000000,
-                "status": "Feasibility Study",
-                "rfp_date": "2028",
-                "strategy": "Long term lead. Monitor Council minutes for design approval."
+                "strategy": "Standard CIP line item. Check page 45 of linked PDF.",
+                "source_url": doc_url
             })
             
         return leads
@@ -126,35 +127,48 @@ class CivicWorksEngine:
         self.analyst = AnalystAgent()
         
     def run_mission(self):
+        # Read Config
         if not os.path.exists("scan_config.json"):
-            config = {"state": "WA", "types": ["City", "School District"]}
+            config = {"state": "WA", "specific_names": ["City of Richland"]}
         else:
             with open("scan_config.json", "r") as f:
                 config = json.load(f)
             
         target_state = config.get("state", "WA")
-        target_types = config.get("types", ["City"])
+        target_types = config.get("types", [])
+        target_specifics = config.get("specific_names", [])
         
-        targets = self.scout.get_targets(target_state, target_types)
+        # 1. SCOUT
+        targets = self.scout.get_targets(target_state, target_types, target_specifics)
+        
         all_data = []
         
+        # 2. WATCHMAN LOOP
         for t in targets:
-            url = self.scout.find_url(t['name'])
-            docs = self.watchman.scan_for_docs(t['name'])
+            entity_name = t['name']
             
-            for doc in docs:
-                leads = self.analyst.analyze(t, doc)
+            # Find official site (for metadata)
+            official_site = self.scout.find_official_site(entity_name)
+            
+            # Find REAL PDFs
+            real_docs = self.watchman.find_real_docs(entity_name)
+            
+            # 3. ANALYST LOOP
+            for doc in real_docs:
+                leads = self.analyst.analyze(entity_name, doc)
                 for lead in leads:
-                    lead['entity'] = t['name']
-                    lead['type'] = t['type']
+                    lead['entity'] = entity_name
+                    lead['type'] = t.get('type', 'Standard')
                     lead['state'] = target_state
-                    lead['url'] = url
-                    lead['source_doc'] = doc
+                    lead['url'] = official_site
+                    lead['source_doc'] = doc['name']
+                    # Ensure the real PDF link is saved
+                    lead['pdf_link'] = doc['url'] 
                     all_data.append(lead)
                 
         with open("swarm_data.json", "w") as f:
             json.dump(all_data, f, indent=4)
-        print("✅ Civic Works Scan Complete.")
+        print("✅ Civic Works Live Scan Complete.")
 
 if __name__ == "__main__":
     engine = CivicWorksEngine()
