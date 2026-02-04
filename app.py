@@ -9,25 +9,61 @@ import plotly.express as px
 st.set_page_config(page_title="Civic Works | Market Intelligence", layout="wide")
 
 # ==========================================
-# MASTER ENTITY LIST (For Dropdowns)
+# MASTER ENTITY LIST (Major Markets WA/OR/ID)
 # ==========================================
 ENTITY_OPTIONS = {
     "WA": {
-        "School District": ["Kennewick School District", "Pasco School District", "Seattle Public Schools", "Bellevue School District"],
-        "City": ["City of Richland", "City of Kennewick", "City of Bellevue", "City of Renton", "City of Seattle"],
-        "Port": ["Port of Benton", "Port of Seattle", "Port of Tacoma"],
-        "County": ["Benton County", "King County", "Pierce County"]
+        "City": [
+            "City of Seattle", "City of Spokane", "City of Tacoma", "City of Vancouver", 
+            "City of Bellevue", "City of Kent", "City of Everett", "City of Renton", 
+            "City of Spokane Valley", "City of Federal Way", "City of Yakima", 
+            "City of Kirkland", "City of Bellingham", "City of Kennewick", "City of Auburn", 
+            "City of Pasco", "City of Richland", "City of Redmond", "City of Sammamish"
+        ],
+        "School District": [
+            "Seattle Public Schools", "Lake Washington School District", "Spokane Public Schools",
+            "Tacoma Public Schools", "Kent School District", "Evergreen Public Schools",
+            "Pasco School District", "Kennewick School District", "Richland School District"
+        ],
+        "Port": [
+            "Port of Seattle", "Port of Tacoma", "Port of Vancouver USA", "Port of Everett",
+            "Port of Bellingham", "Port of Benton", "Port of Pasco", "Port of Kennewick"
+        ],
+        "County": [
+            "King County", "Pierce County", "Snohomish County", "Spokane County", 
+            "Clark County", "Thurston County", "Benton County", "Yakima County"
+        ]
     },
     "OR": {
-        "School District": ["Portland Public Schools", "Beaverton School District", "Salem-Keizer Public Schools"],
-        "City": ["City of Portland", "City of Salem", "City of Bend", "City of Eugene"],
-        "Port": ["Port of Portland", "Port of Coos Bay"],
-        "County": ["Multnomah County", "Deschutes County"]
+        "City": [
+            "City of Portland", "City of Salem", "City of Eugene", "City of Gresham",
+            "City of Hillsboro", "City of Beaverton", "City of Bend", "City of Medford",
+            "City of Springfield", "City of Corvallis", "City of Albany", "City of Tigard"
+        ],
+        "School District": [
+            "Portland Public Schools", "Salem-Keizer Public Schools", "Beaverton School District",
+            "Hillsboro School District", "Eugene School District", "Bend-La Pine Schools"
+        ],
+        "Port": [
+            "Port of Portland", "Port of Coos Bay", "Port of Astoria"
+        ],
+        "County": [
+            "Multnomah County", "Washington County", "Clackamas County", "Lane County", 
+            "Marion County", "Deschutes County"
+        ]
     },
     "ID": {
-        "School District": ["Boise School District", "West Ada School District"],
-        "City": ["City of Boise", "City of Meridian", "City of Nampa"],
-        "County": ["Ada County", "Canyon County"]
+        "City": [
+            "City of Boise", "City of Meridian", "City of Nampa", "City of Idaho Falls",
+            "City of Caldwell", "City of Pocatello", "City of Coeur d'Alene", "City of Twin Falls"
+        ],
+        "School District": [
+            "Boise School District", "West Ada School District", "Nampa School District",
+            "Pocatello-Chubbuck School District"
+        ],
+        "County": [
+            "Ada County", "Canyon County", "Kootenai County", "Bonneville County"
+        ]
     }
 }
 
@@ -40,10 +76,18 @@ def load_data():
     return pd.DataFrame(data)
 
 def save_scan_config(state, types, specific_names):
+    # If specific_names is EMPTY, we grab ALL names from the list above for the selected types
+    if not specific_names:
+        final_list = []
+        for t in types:
+            final_list.extend(ENTITY_OPTIONS[state].get(t, []))
+    else:
+        final_list = specific_names
+
     config = {
         "state": state, 
         "types": types,
-        "specific_names": specific_names
+        "specific_names": final_list
     }
     with open("scan_config.json", "w") as f:
         json.dump(config, f)
@@ -52,7 +96,7 @@ def save_scan_config(state, types, specific_names):
 # SIDEBAR CONTROLS
 # ==========================================
 st.sidebar.title("🏛️ Civic Works")
-st.sidebar.caption("Alliance Management System v1.2")
+st.sidebar.caption("Alliance Management System v1.3")
 st.sidebar.markdown("---")
 
 # 1. Select State
@@ -62,7 +106,7 @@ selected_state = st.sidebar.selectbox("Target Region", ["WA", "OR", "ID"])
 selected_types = st.sidebar.multiselect(
     "Jurisdiction Types", 
     ["City", "School District", "Port", "County"],
-    default=["City", "School District"]
+    default=["City"]
 )
 
 # 3. DYNAMIC DROPDOWN
@@ -75,17 +119,15 @@ if selected_state in ENTITY_OPTIONS:
 selected_specifics = st.sidebar.multiselect(
     "Specific Governments (Optional)",
     available_names,
-    placeholder="Select specific entities..."
+    placeholder="Leave empty to scan ALL above..."
 )
 
 st.sidebar.markdown("---")
 
 # 4. Launch Button
 if st.sidebar.button("🚀 RUN INTELLIGENCE SCAN"):
-    # This was the line breaking before. It is fixed now:
     with st.spinner(f"Civic Works agents scanning..."):
         save_scan_config(selected_state, selected_types, selected_specifics)
-        # Using sys.executable to fix Mac command issues
         os.system(f"{sys.executable} swarm_engine.py")
         st.success("Scan Complete.")
         st.rerun()
@@ -99,7 +141,7 @@ st.markdown(f"### 📡 Live Market Intelligence: **{selected_state}**")
 df = load_data()
 
 if df.empty:
-    st.info("👋 Welcome to Civic Works. Configure your search on the left to begin.")
+    st.info("👋 Welcome to Civic Works. Select a Region on the left and click 'Run Intelligence Scan' to begin.")
 else:
     # KPIS
     c1, c2, c3 = st.columns(3)
@@ -132,7 +174,6 @@ else:
             "status": st.column_config.TextColumn("Current Status"),
         }
         
-        # Only try to show links if the engine found them
         if 'pdf_link' in df.columns:
             cols_to_show.append('pdf_link')
             col_config["pdf_link"] = st.column_config.LinkColumn("Source Document")
